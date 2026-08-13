@@ -19,7 +19,9 @@ export function getSupabaseClient(): SupabaseClient | null {
       flowType: "pkce",
       persistSession: true,
       autoRefreshToken: true,
-      detectSessionInUrl: true,
+      // AuthGate exchanges the OAuth code explicitly so callback failures are
+      // visible to the user instead of silently leaving them on the sign-in page.
+      detectSessionInUrl: false,
     },
     realtime: {
       params: { eventsPerSecond: 10 },

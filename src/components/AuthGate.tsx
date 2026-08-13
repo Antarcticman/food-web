@@ -75,6 +75,9 @@ function toProfile(row: ProfileRow): AuthenticatedProfile {
 
 function friendlyAuthError(error: unknown) {
   const message = error instanceof Error ? error.message : String(error);
+  if (/code verifier|pkce|invalid.*code|auth code/i.test(message)) {
+    return "Google 已經回傳登入結果，但這次登入憑證沒有完整保留。請重新按一次「使用 Google 登入」，並在同一個瀏覽器完成登入。";
+  }
   if (/not allowlisted|row-level security|policy/i.test(message)) {
     return "這個 Google 帳號尚未加入好友名單，請請管理員確認信箱。";
   }
@@ -163,14 +166,41 @@ export function AuthGate({ children }: AuthGateProps) {
       }
     };
 
-    void supabase.auth.getSession().then(({ data, error }) => {
-      if (!active) return;
-      if (error) {
-        setMessage(friendlyAuthError(error));
-        setStatus("error");
+    const clearOAuthParams = () => {
+      const url = new URL(window.location.href);
+      ["code", "error", "error_code", "error_description"].forEach((key) => {
+        url.searchParams.delete(key);
+      });
+      window.history.replaceState(window.history.state, document.title, url.toString());
+    };
+
+    const initializeAuth = async () => {
+      const params = new URLSearchParams(window.location.search);
+      const oauthError = params.get("error_description") ?? params.get("error");
+      if (oauthError) {
+        clearOAuthParams();
+        throw new Error(oauthError);
+      }
+
+      const code = params.get("code");
+      if (code) {
+        const { data, error } = await supabase.auth.exchangeCodeForSession(code);
+        clearOAuthParams();
+        if (error) throw error;
+        await handleSession(data.session);
         return;
       }
-      void handleSession(data.session);
+
+      const { data, error } = await supabase.auth.getSession();
+      if (error) throw error;
+      await handleSession(data.session);
+    };
+
+    void initializeAuth().catch((error) => {
+      if (!active) return;
+      clearOAuthParams();
+      setMessage(friendlyAuthError(error));
+      setStatus("error");
     });
 
     const { data: listener } = supabase.auth.onAuthStateChange((_event, nextSession) => {
