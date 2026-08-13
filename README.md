@@ -55,7 +55,7 @@ npm run build
 1. Supabase 專案與四份 schema migration：已完成
 2. Google OAuth、受邀名單與本機登入：已完成，首位 Admin profile 與權限已驗證
 3. Gemini API key：尚未設定
-4. GitHub Pages workflow：已建立；尚待建立 GitHub repository、設定兩個 Actions secrets 並首次推送
+4. GitHub repository、Actions secrets 與 Pages workflow：已設定，`main` 更新後會自動部署好友封測版
 
 好友封測部署步驟請見 [FRIEND_BETA_DEPLOY.md](./FRIEND_BETA_DEPLOY.md)。
 
