@@ -33,8 +33,11 @@ jobs:
       - name: Build the friend beta
         run: npm run build -- --base "/${{ github.event.repository.name }}/"
         env:
-          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
-          VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
+          # These are public browser credentials (not the service-role secret).
+          # Keeping them here prevents an outdated repository secret from
+          # silently producing a deployed app that cannot finish OAuth.
+          VITE_SUPABASE_URL: https://fdypgboicchvyhvebftd.supabase.co
+          VITE_SUPABASE_PUBLISHABLE_KEY: sb_publishable_gHwNSbPdO03bDV5g_hcxqw_jtSjfpmc
 
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
