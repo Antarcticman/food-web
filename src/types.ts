@@ -39,6 +39,7 @@ export type DishIngredientFamily =
 export interface NewDishInput {
   name: string;
   description: string;
+  price?: number;
   courseRole: DishCourseRole;
   ingredientFamilies: DishIngredientFamily[];
 }

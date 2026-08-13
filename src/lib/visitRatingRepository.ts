@@ -397,6 +397,17 @@ export async function updateVisitDishDetails(dishId: string, name: string, descr
   if (error) throw error;
 }
 
+export async function updateVisitDishPrice(dishId: string, price?: number) {
+  const normalizedPrice = price === undefined || Number.isNaN(price)
+    ? null
+    : Math.max(0, Math.min(9_999_999, Math.round(price)));
+  const { error } = await requireClient()
+    .from("dishes")
+    .update({ price: normalizedPrice })
+    .eq("id", dishId);
+  if (error) throw error;
+}
+
 export async function setVisitDishConsumers(dishId: string, participantIds: string[]) {
   const { error } = await requireClient().rpc("set_visit_dish_consumers", {
     target_dish: dishId,
@@ -434,7 +445,11 @@ export async function createVisitDish(input: CreateVisitDishInput) {
     dish_course_role: input.courseRole,
     dish_ingredient_families: ingredientFamilies,
   });
-  if (!current.error) return String(current.data);
+  if (!current.error) {
+    const dishId = String(current.data);
+    if (input.price !== undefined) await updateVisitDishPrice(dishId, input.price);
+    return dishId;
+  }
 
   const isOldRpc = current.error.code === "PGRST202"
     || current.error.code === "42883"
@@ -449,7 +464,9 @@ export async function createVisitDish(input: CreateVisitDishInput) {
     dish_visual_recipe: visual,
   });
   if (legacy.error) throw legacy.error;
-  return String(legacy.data);
+  const dishId = String(legacy.data);
+  if (input.price !== undefined) await updateVisitDishPrice(dishId, input.price);
+  return dishId;
 }
 
 export async function reorderVisitDishes(visitId: string, orderedDishIds: string[]) {

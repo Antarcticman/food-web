@@ -444,6 +444,20 @@ export function HomePage({ onOpenVisit }: HomePageProps) {
     setCreateMessage("");
   };
 
+  const clearResolvedMapPlace = () => {
+    setMapUrl("");
+    setMapLinkState("idle");
+    setMapLinkMessage("");
+    setResolvedMapPlace(null);
+    setRestaurantName("");
+    setDebouncedRestaurantName("");
+    setBranchName("");
+    setAddress("");
+    resetRestaurantChoice();
+  };
+
+  const hasResolvedMapPlace = mapLinkState === "ready" && Boolean(resolvedMapPlace);
+
   return (
     <>
       <a className="skip-link" href="#home-main">跳到進行中的餐桌</a>
@@ -641,9 +655,10 @@ export function HomePage({ onOpenVisit }: HomePageProps) {
             )}
           </label>
 
-          <div className="restaurant-input-divider"><span>或輸入店名</span></div>
+          {!hasResolvedMapPlace && <>
+            <div className="restaurant-input-divider"><span>或輸入店名</span></div>
 
-          <label className="restaurant-search-field">
+            <label className="restaurant-search-field">
             <span>你現在在哪間店？</span>
             <span className="restaurant-search-input">
               <MagnifyingGlass weight="bold" aria-hidden="true" />
@@ -660,9 +675,9 @@ export function HomePage({ onOpenVisit }: HomePageProps) {
                 }}
               />
             </span>
-          </label>
+            </label>
 
-          {!selectedRestaurant && !creatingNewRestaurant && (
+            {!selectedRestaurant && !creatingNewRestaurant && (
             <section className="restaurant-suggestion-section" aria-live="polite" aria-busy={catalogLoading}>
               <header>
                 <strong>{restaurantName.trim() ? "符合店名" : coordinates ? "你附近的紀錄" : "最近開過的店"}</strong>
@@ -714,7 +729,8 @@ export function HomePage({ onOpenVisit }: HomePageProps) {
                 </button>
               )}
             </section>
-          )}
+            )}
+          </>}
 
           {selectedRestaurant && (
             <section className="restaurant-confirm-card">
@@ -724,7 +740,7 @@ export function HomePage({ onOpenVisit }: HomePageProps) {
                   <small>確認開桌餐廳</small>
                   <strong>{selectedRestaurant.name}</strong>
                 </div>
-                <button type="button" onClick={resetRestaurantChoice}>重選</button>
+                <button type="button" onClick={hasResolvedMapPlace ? clearResolvedMapPlace : resetRestaurantChoice}>更換</button>
               </header>
               {(selectedRestaurant.branchName || selectedRestaurant.address) && (
                 <p><MapPin weight="fill" aria-hidden="true" />{[selectedRestaurant.branchName, selectedRestaurant.address].filter(Boolean).join(" · ")}</p>
@@ -733,7 +749,7 @@ export function HomePage({ onOpenVisit }: HomePageProps) {
               {selectedRestaurant.activeVisitId && (
                 <div className="restaurant-live-note"><UsersThree weight="fill" aria-hidden="true" />這間店已經有一桌，會直接加入，不會重複開桌。</div>
               )}
-              {coordinates && selectedRestaurant.latitude == null && selectedRestaurant.longitude == null && (
+              {!hasResolvedMapPlace && coordinates && selectedRestaurant.latitude == null && selectedRestaurant.longitude == null && (
                 <label className="restaurant-save-location">
                   <input type="checkbox" checked={saveLocation} onChange={(event) => setSaveLocation(event.target.checked)} />
                   <span><strong>補上這間店的位置</strong><small>之後朋友在附近就找得到 · 精度約 {Math.round(coordinates.accuracy)}m</small></span>
@@ -742,7 +758,22 @@ export function HomePage({ onOpenVisit }: HomePageProps) {
             </section>
           )}
 
-          {creatingNewRestaurant && (
+          {creatingNewRestaurant && hasResolvedMapPlace && resolvedMapPlace && (
+            <section className="restaurant-confirm-card is-from-map">
+              <header>
+                <span aria-hidden="true"><CheckCircle weight="fill" /></span>
+                <div>
+                  <small>Google 地圖已確認</small>
+                  <strong>{resolvedMapPlace.name}</strong>
+                </div>
+                <button type="button" onClick={clearResolvedMapPlace}>更換</button>
+              </header>
+              {resolvedMapPlace.address && <p><MapPin weight="fill" aria-hidden="true" />{resolvedMapPlace.address}</p>}
+              <p>會直接用這筆店名與地址建立餐廳，不需要再填一次。</p>
+            </section>
+          )}
+
+          {creatingNewRestaurant && !hasResolvedMapPlace && (
             <section className="restaurant-new-card">
               <header>
                 <div><small>建立新的餐廳紀錄</small><strong>{restaurantName.trim()}</strong></div>

@@ -1,5 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
-import { Camera, MagicWand } from "@phosphor-icons/react";
+import { useEffect, useMemo, useState } from "react";
 import { suggestDishClassification } from "../data/dishClassification";
 import type { DishCourseRole, DishIngredientFamily, NewDishInput } from "../types";
 import { BottomSheet } from "./BottomSheet";
@@ -14,10 +13,9 @@ interface QuickAddSheetProps {
 export function QuickAddSheet({ open, onClose, onAdd }: QuickAddSheetProps) {
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
+  const [price, setPrice] = useState("");
   const [chosenCourseRole, setChosenCourseRole] = useState<DishCourseRole | null>(null);
   const [chosenIngredientFamilies, setChosenIngredientFamilies] = useState<DishIngredientFamily[] | null>(null);
-  const [fileName, setFileName] = useState("");
-  const fileRef = useRef<HTMLInputElement>(null);
 
   const suggestion = useMemo(
     () => suggestDishClassification(name, description),
@@ -31,9 +29,9 @@ export function QuickAddSheet({ open, onClose, onAdd }: QuickAddSheetProps) {
     if (open) return;
     setName("");
     setDescription("");
+    setPrice("");
     setChosenCourseRole(null);
     setChosenIngredientFamilies(null);
-    setFileName("");
   }, [open]);
 
   const updateName = (nextName: string) => {
@@ -54,6 +52,7 @@ export function QuickAddSheet({ open, onClose, onAdd }: QuickAddSheetProps) {
     onAdd({
       name: trimmed,
       description: description.trim(),
+      price: price.trim() ? Number(price) : undefined,
       courseRole,
       ingredientFamilies,
     });
@@ -88,6 +87,25 @@ export function QuickAddSheet({ open, onClose, onAdd }: QuickAddSheetProps) {
           />
         </div>
 
+        <div className="quick-add-field quick-add-field--price">
+          <label className="field-label" htmlFor="dishPrice">價格 <small>選填</small></label>
+          <span className="quick-add-price-input">
+            <b>NT$</b>
+            <input
+              id="dishPrice"
+              className="quick-add-input"
+              type="number"
+              inputMode="numeric"
+              min="0"
+              max="9999999"
+              step="1"
+              value={price}
+              placeholder="0"
+              onChange={(event) => setPrice(event.target.value)}
+            />
+          </span>
+        </div>
+
         <DishClassificationPicker
           name={name}
           description={description}
@@ -96,25 +114,6 @@ export function QuickAddSheet({ open, onClose, onAdd }: QuickAddSheetProps) {
           onCourseRoleChange={setChosenCourseRole}
           onIngredientFamiliesChange={setChosenIngredientFamilies}
         />
-
-        <button className="scan-action scan-action--compact" type="button" onClick={() => fileRef.current?.click()}>
-          <span><Camera weight="duotone" /></span>
-          <div><strong>從照片加入多道菜</strong><small>菜單辨識仍是下一階段；目前可先選照片保留流程</small></div>
-        </button>
-        <input
-          ref={fileRef}
-          className="sr-only"
-          type="file"
-          accept="image/*"
-          aria-label="選擇菜單照片"
-          onChange={(event) => setFileName(event.target.files?.[0]?.name ?? "")}
-        />
-        {fileName && (
-          <div className="ocr-placeholder" role="status">
-            <MagicWand weight="duotone" />
-            <div><strong>{fileName}</strong><small>照片已選取；OCR 串接完成前不會上傳或產生費用。</small></div>
-          </div>
-        )}
 
         <div className="quick-add-actions">
           <button className="primary-button" type="submit" disabled={!name.trim()}>加入待確認菜色</button>

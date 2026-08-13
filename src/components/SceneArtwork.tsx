@@ -5,6 +5,16 @@ import plateRimUrl from "../../affinity/Plate_rim.png";
 import tableUrl from "../../affinity/Table.png";
 import tableRunnerUrl from "../../affinity/Table_runner.png";
 
+const sceneImageUrls = [plateUrl, plateRimUrl, tableUrl, tableRunnerUrl];
+if (typeof window !== "undefined") {
+  sceneImageUrls.forEach((source) => {
+    const image = new Image();
+    image.decoding = "sync";
+    image.src = source;
+    void image.decode?.().catch(() => undefined);
+  });
+}
+
 interface MovingArtworkProps {
   dragX?: number;
   hidden?: boolean;
@@ -56,6 +66,9 @@ function ImageArtwork({
       src={source}
       style={style}
       alt=""
+      loading="eager"
+      decoding="sync"
+      fetchPriority="high"
       draggable={false}
       aria-hidden="true"
     />

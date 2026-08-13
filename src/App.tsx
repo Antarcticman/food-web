@@ -33,6 +33,7 @@ import {
   subscribeToVisitRatingState,
   updateVisitDishClassification,
   updateVisitDishDetails,
+  updateVisitDishPrice,
   type VisitRoomParticipant,
 } from "./lib/visitRatingRepository";
 import type {
@@ -159,6 +160,7 @@ function RatingExperience({ activeVisit, onHome }: RatingExperienceProps) {
   const [toast, setToast] = useState<ToastState | null>(null);
   const [syncState, setSyncState] = useState<RatingSyncState>("idle");
   const [dishTransitionDirection, setDishTransitionDirection] = useState<DishTransitionDirection>(0);
+  const [dishTransitionRevision, setDishTransitionRevision] = useState(0);
   const toastTimer = useRef<number | null>(null);
   const syncTimer = useRef<number | null>(null);
   const refreshTimer = useRef<number | null>(null);
@@ -204,7 +206,12 @@ function RatingExperience({ activeVisit, onHome }: RatingExperienceProps) {
   const applyRoomState = useCallback((state: Awaited<ReturnType<typeof loadVisitRatingState>>) => {
     const mergedDishes = state.dishes;
     setDishes(mergedDishes);
-    setRatings(state.ratings);
+    setRatings(Object.fromEntries(Object.entries(state.ratings).map(([dishId, draft]) => [
+      dishId,
+      latestNotes.current.has(dishId)
+        ? { ...draft, note: latestNotes.current.get(dishId) ?? "" }
+        : draft,
+    ])));
     setRoomParticipants(state.participants);
     setReady(state.ready);
     setEveryoneReady(state.everyoneReady);
@@ -325,6 +332,7 @@ function RatingExperience({ activeVisit, onHome }: RatingExperienceProps) {
     const targetIndex = ratingDishes.findIndex((dish) => dish.id === dishId);
     if (targetIndex < 0 || targetIndex === currentIndex) return;
     setDishTransitionDirection(targetIndex > currentIndex ? 1 : -1);
+    setDishTransitionRevision((current) => current + 1);
     setActiveDishId(dishId);
   };
 
@@ -588,6 +596,7 @@ function RatingExperience({ activeVisit, onHome }: RatingExperienceProps) {
         ...dish,
         name,
         description,
+        price: input.price,
         confirmation: nameChanged ? "draft" : dish.confirmation,
         courseRole: input.courseRole,
         ingredientFamilies: input.ingredientFamilies,
@@ -597,6 +606,7 @@ function RatingExperience({ activeVisit, onHome }: RatingExperienceProps) {
 
     queueWrite(`edit:${dishId}`, async () => {
       await updateVisitDishDetails(dishId, name, description);
+      await updateVisitDishPrice(dishId, input.price);
       const updated = await updateVisitDishClassification(
         { ...target, name, description },
         input.courseRole,
@@ -632,6 +642,7 @@ function RatingExperience({ activeVisit, onHome }: RatingExperienceProps) {
       const state = await loadVisitRatingState(activeVisit.id, currentParticipantId);
       applyRoomState(state);
       setDishTransitionDirection(1);
+      setDishTransitionRevision((current) => current + 1);
       setActiveDishId(id);
     });
   };
@@ -733,6 +744,7 @@ function RatingExperience({ activeVisit, onHome }: RatingExperienceProps) {
               readyPending={readyPending}
               syncState={syncState}
               transitionDirection={dishTransitionDirection}
+              transitionRevision={dishTransitionRevision}
               onOpen={openDish}
               onScoreCommit={commitScore}
               onToggleReason={toggleReason}

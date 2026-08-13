@@ -9,6 +9,7 @@ import type { Dish, DishCourseRole, DishIngredientFamily, Participant, Participa
 export interface DishEditInput {
   name: string;
   description: string;
+  price?: number;
   courseRole: DishCourseRole;
   ingredientFamilies: DishIngredientFamily[];
   participantIds: string[];
@@ -55,6 +56,7 @@ export function TableDetailsSheet({ open, dishes, participants, currentParticipa
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editName, setEditName] = useState("");
   const [editDescription, setEditDescription] = useState("");
+  const [editPrice, setEditPrice] = useState("");
   const [editRole, setEditRole] = useState<DishCourseRole>("other");
   const [editIngredients, setEditIngredients] = useState<DishIngredientFamily[]>([]);
   const [editParticipantIds, setEditParticipantIds] = useState<string[]>([]);
@@ -89,6 +91,7 @@ export function TableDetailsSheet({ open, dishes, participants, currentParticipa
     }
     setEditName(dish.name);
     setEditDescription(dish.description);
+    setEditPrice(dish.price === undefined ? "" : String(dish.price));
     setEditRole(dish.courseRole ?? "other");
     setEditIngredients(dish.ingredientFamilies ?? []);
     setEditParticipantIds(participants
@@ -127,6 +130,7 @@ export function TableDetailsSheet({ open, dishes, participants, currentParticipa
     onUpdateDish(dish.id, {
       name: editName,
       description: editDescription,
+      price: editPrice.trim() ? Number(editPrice) : undefined,
       courseRole: editRole,
       ingredientFamilies: editIngredients,
       participantIds: editParticipantIds,
@@ -326,6 +330,13 @@ export function TableDetailsSheet({ open, dishes, participants, currentParticipa
               <label>
                 <span>補充內容 <small>可留白</small></span>
                 <textarea value={editDescription} maxLength={400} rows={2} onChange={(event) => updateEditDescription(event.target.value)} />
+              </label>
+              <label>
+                <span>價格 <small>選填</small></span>
+                <span className="detail-price-input">
+                  <b>NT$</b>
+                  <input type="number" inputMode="numeric" min="0" max="9999999" step="1" value={editPrice} placeholder="0" onChange={(event) => setEditPrice(event.target.value)} />
+                </span>
               </label>
             </div>
             <fieldset className="detail-consumer-picker">

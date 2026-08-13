@@ -21,6 +21,7 @@ interface RatingStageProps {
   readyPending?: boolean;
   syncState: RatingSyncState;
   transitionDirection?: -1 | 0 | 1;
+  transitionRevision?: number;
   onOpen: () => void;
   onScoreCommit: (score: number) => void;
   onToggleReason: (reason: string) => void;
@@ -76,6 +77,7 @@ export function RatingStage({
   readyPending = false,
   syncState,
   transitionDirection = 0,
+  transitionRevision = 0,
   onOpen,
   onScoreCommit,
   onToggleReason,
@@ -92,6 +94,7 @@ export function RatingStage({
   const revealTimerRef = useRef<number | null>(null);
   const reboundTimerRef = useRef<number | null>(null);
   const suppressClickRef = useRef(false);
+  const noteComposingRef = useRef(false);
   const [gestureMode, setGestureMode] = useState<GestureMode>("idle");
   const [previewScore, setPreviewScore] = useState<number | null>(draft.score);
   const [dragX, setDragX] = useState(0);
@@ -101,6 +104,7 @@ export function RatingStage({
   const [rebound, setRebound] = useState(false);
   const [previewCovered, setPreviewCovered] = useState(true);
   const [noteOpen, setNoteOpen] = useState(false);
+  const [noteDraft, setNoteDraft] = useState(draft.note);
 
   useEffect(() => {
     sessionRef.current = null;
@@ -112,8 +116,13 @@ export function RatingStage({
     setWobble(false);
     setRebound(false);
     setNoteOpen(false);
+    setNoteDraft(draft.note);
     if (dish.previewOnly) setPreviewCovered(true);
   }, [dish.id, draft.score, draft.state]);
+
+  useEffect(() => {
+    if (!noteOpen && !noteComposingRef.current) setNoteDraft(draft.note);
+  }, [draft.note, noteOpen]);
 
   useEffect(() => () => {
     if (revealTimerRef.current) window.clearTimeout(revealTimerRef.current);
@@ -128,10 +137,11 @@ export function RatingStage({
   const reasonScore = visibleScore ?? draft.score ?? 50;
   const reasonSet = reasonsFor(dish, reasonScore);
   const canRate = !dish.previewOnly && !locked && !notEaten && (dish.overall || draft.state !== "unopened");
+  const transitionVariant = transitionRevision % 2 === 0 ? " is-transition-a" : " is-transition-b";
   const courseTransitionClass = transitionDirection > 0
-    ? " is-entering-next"
+    ? ` is-entering-next${transitionVariant}`
     : transitionDirection < 0
-      ? " is-entering-previous"
+      ? ` is-entering-previous${transitionVariant}`
       : "";
 
   const triggerRebound = () => {
@@ -302,7 +312,7 @@ export function RatingStage({
             <Avatar participant={participant} variant="stage" decorative />
           </div>
           <SceneTableArtwork />
-          <div key={dish.id} className={`scene-course-layer${courseTransitionClass}`}>
+          <div className={`scene-course-layer${courseTransitionClass}`}>
             <ScenePlateArtwork dragX={dragX} />
             <div className="scene-dome-wrap"><SceneDomeArtwork dragX={dragX} /></div>
           </div>
@@ -369,7 +379,7 @@ export function RatingStage({
         </div>
 
         <SceneTableArtwork />
-        <div key={dish.id} className={`scene-course-layer${courseTransitionClass}`}>
+        <div className={`scene-course-layer${courseTransitionClass}`}>
           <ScenePlateArtwork dragX={dragX} hidden={notEaten} />
           <DishVisual recipe={dish.visualRecipe} overall={dish.overall} preview={dish.previewOnly} hidden={covered || notEaten} dragX={dragX} />
 
@@ -479,19 +489,35 @@ export function RatingStage({
                 <textarea
                   rows={2}
                   maxLength={300}
-                  value={draft.note}
+                  value={noteDraft}
                   autoFocus
                   placeholder={dish.overall ? "服務、環境、結帳或整體感受…" : "味道、口感，或下次想提醒自己的事…"}
-                  onChange={(event) => onNoteChange(event.target.value)}
+                  onCompositionStart={() => { noteComposingRef.current = true; }}
+                  onCompositionEnd={(event) => {
+                    noteComposingRef.current = false;
+                    const value = event.currentTarget.value.slice(0, 300);
+                    setNoteDraft(value);
+                    onNoteChange(value);
+                  }}
+                  onChange={(event) => {
+                    const value = event.target.value.slice(0, 300);
+                    setNoteDraft(value);
+                    if (!(event.nativeEvent as InputEvent).isComposing && !noteComposingRef.current) onNoteChange(value);
+                  }}
                   onBlur={() => {
+                    noteComposingRef.current = false;
+                    onNoteChange(noteDraft);
                     onNoteBlur();
                     setNoteOpen(false);
                   }}
                 />
-                <small>{draft.note.length}/300</small>
+                <small>{noteDraft.length}/300</small>
               </label>
             ) : (
-              <button type="button" onClick={() => setNoteOpen(true)}>
+              <button type="button" onClick={() => {
+                setNoteDraft(draft.note);
+                setNoteOpen(true);
+              }}>
                 <NotePencil weight="bold" aria-hidden="true" />
                 <span>{draft.note.trim() || "寫一句"}</span>
               </button>
