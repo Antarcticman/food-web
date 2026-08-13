@@ -47,35 +47,6 @@ function dish(input: Omit<Dish, "category" | "visualRecipe">): Dish {
   return { ...input, category: visualRecipe.category, visualRecipe };
 }
 
-export const previewDish: Dish = {
-  ...dish({
-    id: "scene-preview",
-    order: 998,
-    name: "罩蓋測試盤",
-    description: "本機場景預覽，不列入評分統計",
-    kind: "seafood",
-    confirmation: "confirmed",
-    previewOnly: true,
-    participantStatus: {},
-  }),
-  visualRecipe: {
-    ...createDishVisualRecipe("罩蓋測試盤", "seafood"),
-    base: "preview-scallop",
-    palette: "mint",
-  },
-};
-
-export function withPreviewDish(dishes: Dish[]) {
-  const withoutPreview = dishes.filter((item) => item.id !== previewDish.id);
-  const overallIndex = withoutPreview.findIndex((item) => item.overall);
-  if (overallIndex < 0) return [...withoutPreview, previewDish];
-  return [
-    ...withoutPreview.slice(0, overallIndex),
-    previewDish,
-    ...withoutPreview.slice(overallIndex),
-  ];
-}
-
 export const initialDishes: Dish[] = [
   dish({
     id: "scallop",
@@ -106,7 +77,6 @@ export const initialDishes: Dish[] = [
     price: 320,
     participantStatus: { anta: "unopened", mina: "rated", jack: "unopened", zoe: "rated", kai: "unopened", yu: "rated" },
   }),
-  previewDish,
   dish({
     id: "overall",
     order: 999,
@@ -125,6 +95,5 @@ export const initialRatings: RatingDrafts = {
   scallop: { score: 68, selectedReasons: ["鮮味乾淨"], note: "", state: "rated", ratedAt: now, updatedAt: now },
   duck: { score: 74, selectedReasons: [], note: "", state: "opened", openedAt: now, updatedAt: now },
   pudding: { score: null, selectedReasons: [], note: "", state: "unopened", updatedAt: now },
-  "scene-preview": { score: null, selectedReasons: [], note: "", state: "unopened", updatedAt: now },
   overall: { score: null, selectedReasons: [], note: "", state: "unopened", updatedAt: now },
 };

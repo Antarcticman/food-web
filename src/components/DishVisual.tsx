@@ -22,17 +22,7 @@ export function DishVisual({ recipe, overall = false, preview = false, hidden = 
   } as CSSProperties;
 
   if (overall) {
-    return (
-      <div className="dish-visual dish-visual--total" style={style} aria-hidden="true">
-        <span className="total-place-setting">
-          <i className="total-setting-plate" />
-          <i className="total-setting-napkin" />
-          <i className="total-setting-fork" />
-          <i className="total-setting-knife" />
-        </span>
-        <span className="total-setting-sparkles"><i /><i /></span>
-      </div>
-    );
+    return null;
   }
 
   return (

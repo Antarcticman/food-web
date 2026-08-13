@@ -13,8 +13,6 @@ import {
   initialDishes as demoDishes,
   initialRatings as demoRatings,
   participants as demoParticipants,
-  previewDish,
-  withPreviewDish,
 } from "./data/demo";
 import { reasonsFor } from "./data/ratingReasons";
 import { loadResultSnapshot, markResultViewed, revealVisit, setVisitReady, type PersistedResultSnapshot } from "./lib/resultRepository";
@@ -204,18 +202,9 @@ function RatingExperience({ activeVisit, onHome }: RatingExperienceProps) {
   );
 
   const applyRoomState = useCallback((state: Awaited<ReturnType<typeof loadVisitRatingState>>) => {
-    const mergedDishes = withPreviewDish(state.dishes);
+    const mergedDishes = state.dishes;
     setDishes(mergedDishes);
-    setRatings({
-      ...state.ratings,
-      [previewDish.id]: {
-        score: null,
-        selectedReasons: [],
-        note: "",
-        state: "unopened",
-        updatedAt: new Date().toISOString(),
-      },
-    });
+    setRatings(state.ratings);
     setRoomParticipants(state.participants);
     setReady(state.ready);
     setEveryoneReady(state.everyoneReady);

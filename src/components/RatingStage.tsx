@@ -370,7 +370,7 @@ export function RatingStage({
 
         <SceneTableArtwork />
         <div key={dish.id} className={`scene-course-layer${courseTransitionClass}`}>
-          {!dish.overall && <ScenePlateArtwork dragX={dragX} hidden={notEaten} />}
+          <ScenePlateArtwork dragX={dragX} hidden={notEaten} />
           <DishVisual recipe={dish.visualRecipe} overall={dish.overall} preview={dish.previewOnly} hidden={covered || notEaten} dragX={dragX} />
 
           {dish.previewOnly && !covered && (
