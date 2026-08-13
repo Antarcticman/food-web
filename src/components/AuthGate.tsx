@@ -73,15 +73,20 @@ function toProfile(row: ProfileRow): AuthenticatedProfile {
   };
 }
 
-function friendlyAuthError(error: unknown) {
-  const message = error instanceof Error ? error.message : String(error);
+function authErrorMessage(error: unknown) {
+  return (error instanceof Error ? error.message : String(error)).trim().replace(/\s+/g, " ").slice(0, 180);
+}
+
+function friendlyAuthError(error: unknown, phase?: "callback" | "profile") {
+  const message = authErrorMessage(error);
   if (/code verifier|pkce|invalid.*code|auth code/i.test(message)) {
     return "Google 已經回傳登入結果，但這次登入憑證沒有完整保留。請重新按一次「使用 Google 登入」，並在同一個瀏覽器完成登入。";
   }
   if (/not allowlisted|row-level security|policy/i.test(message)) {
     return "這個 Google 帳號尚未加入好友名單，請請管理員確認信箱。";
   }
-  return "登入暫時失敗，請稍後再試；若持續發生，再一起檢查 Supabase 設定。";
+  const label = phase === "profile" ? "讀取個人資料" : "完成 Google 登入";
+  return `${label}失敗：${message || "未知錯誤"}`;
 }
 
 export function AuthGate({ children }: AuthGateProps) {
@@ -153,15 +158,19 @@ export function AuthGate({ children }: AuthGateProps) {
 
       if (handledUserId === nextSession.user.id) return;
       handledUserId = nextSession.user.id;
+      setSession(nextSession);
       setStatus("loading");
       try {
         await prepareProfile(nextSession);
       } catch (error) {
         if (!active) return;
-        const blocked = /not allowlisted|row-level security|policy/i.test(error instanceof Error ? error.message : String(error));
-        ignoreNextSignedOut = true;
-        await supabase.auth.signOut();
-        setMessage(friendlyAuthError(error));
+        const blocked = /not allowlisted|row-level security|policy/i.test(authErrorMessage(error));
+        console.error("[auth] profile setup failed", error);
+        if (blocked) {
+          ignoreNextSignedOut = true;
+          await supabase.auth.signOut();
+        }
+        setMessage(friendlyAuthError(error, "profile"));
         setStatus(blocked ? "blocked" : "error");
       }
     };
@@ -199,7 +208,8 @@ export function AuthGate({ children }: AuthGateProps) {
     void initializeAuth().catch((error) => {
       if (!active) return;
       clearOAuthParams();
-      setMessage(friendlyAuthError(error));
+      console.error("[auth] OAuth callback failed", error);
+      setMessage(friendlyAuthError(error, "callback"));
       setStatus("error");
     });
 
@@ -218,13 +228,31 @@ export function AuthGate({ children }: AuthGateProps) {
     if (!supabase) return;
     setStatus("loading");
     setMessage("");
+
+    const { data: current, error: sessionError } = await supabase.auth.getSession();
+    if (sessionError) {
+      setMessage(friendlyAuthError(sessionError, "callback"));
+      setStatus("error");
+      return;
+    }
+    if (current.session) {
+      try {
+        await prepareProfile(current.session);
+      } catch (error) {
+        console.error("[auth] profile retry failed", error);
+        setMessage(friendlyAuthError(error, "profile"));
+        setStatus("error");
+      }
+      return;
+    }
+
     const redirectTo = new URL(import.meta.env.BASE_URL, window.location.origin).toString();
     const { error } = await supabase.auth.signInWithOAuth({
       provider: "google",
       options: { redirectTo },
     });
     if (error) {
-      setMessage(friendlyAuthError(error));
+      setMessage(friendlyAuthError(error, "callback"));
       setStatus("error");
     }
   };
