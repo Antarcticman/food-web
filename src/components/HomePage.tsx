@@ -25,12 +25,14 @@ import {
   listRecentVisits,
   listRestaurantCatalog,
   restaurantSearchRadius,
+  resolveGoogleMapsLink,
   suggestRestaurants,
   subscribeToActiveVisits,
   type ActiveVisit,
   type RestaurantCatalogEntry,
   type RestaurantSearchLocation,
   type RestaurantSuggestion,
+  type ResolvedMapPlace,
 } from "../lib/activeVisitRepository";
 
 interface HomePageProps {
@@ -39,6 +41,7 @@ interface HomePageProps {
 
 type LoadState = "loading" | "ready" | "error";
 type LocationState = "idle" | "locating" | "ready" | "denied" | "error";
+type MapLinkState = "idle" | "resolving" | "ready" | "error";
 
 function errorMessage(error: unknown, fallback: string) {
   if (error instanceof Error && error.message) return error.message;
@@ -109,6 +112,9 @@ export function HomePage({ onOpenVisit }: HomePageProps) {
   const [branchName, setBranchName] = useState("");
   const [address, setAddress] = useState("");
   const [mapUrl, setMapUrl] = useState("");
+  const [mapLinkState, setMapLinkState] = useState<MapLinkState>("idle");
+  const [mapLinkMessage, setMapLinkMessage] = useState("");
+  const [resolvedMapPlace, setResolvedMapPlace] = useState<ResolvedMapPlace | null>(null);
   const [restaurantCatalog, setRestaurantCatalog] = useState<RestaurantCatalogEntry[]>([]);
   const [catalogLoading, setCatalogLoading] = useState(false);
   const [selectedRestaurant, setSelectedRestaurant] = useState<RestaurantSuggestion | null>(null);
@@ -241,16 +247,21 @@ export function HomePage({ onOpenVisit }: HomePageProps) {
     setCreating(true);
     setCreateMessage("");
     try {
+      const resolvedCoordinates = resolvedMapPlace?.latitude != null && resolvedMapPlace.longitude != null
+        ? { latitude: resolvedMapPlace.latitude, longitude: resolvedMapPlace.longitude, accuracy: 20 }
+        : null;
+      const savedCoordinates = resolvedCoordinates ?? coordinates;
       const visitId = await createActiveVisit({
         restaurantId: selectedRestaurant?.id,
         restaurantName: selectedRestaurant?.name ?? restaurantName,
         branchName: selectedRestaurant?.branchName ?? branchName,
         address: selectedRestaurant?.address ?? address,
-        latitude: coordinates?.latitude,
-        longitude: coordinates?.longitude,
-        locationAccuracy: coordinates?.accuracy,
+        latitude: savedCoordinates?.latitude,
+        longitude: savedCoordinates?.longitude,
+        locationAccuracy: savedCoordinates?.accuracy,
         mapUrl,
-        saveLocation: Boolean(coordinates && saveLocation && (
+        mapExternalId: resolvedMapPlace?.externalId ?? undefined,
+        saveLocation: Boolean(savedCoordinates && saveLocation && (
           creatingNewRestaurant
           || (selectedRestaurant?.latitude == null && selectedRestaurant?.longitude == null)
         )),
@@ -266,6 +277,9 @@ export function HomePage({ onOpenVisit }: HomePageProps) {
       setBranchName("");
       setAddress("");
       setMapUrl("");
+      setMapLinkState("idle");
+      setMapLinkMessage("");
+      setResolvedMapPlace(null);
       setSelectedRestaurant(null);
       setSelectedAlias("");
       setCreatingNewRestaurant(false);
@@ -345,6 +359,76 @@ export function HomePage({ onOpenVisit }: HomePageProps) {
     setSelectedAlias("");
   };
 
+  const applyResolvedPlace = useCallback((place: ResolvedMapPlace) => {
+    const placeLocation = place.latitude != null && place.longitude != null
+      ? { latitude: place.latitude, longitude: place.longitude, accuracy: 20 }
+      : coordinates;
+    const normalizedAddress = (value: string | null | undefined) => (value ?? "")
+      .replace(/[\s,，、.-]/g, "")
+      .replace(/臺/g, "台")
+      .toLocaleLowerCase("zh-TW");
+    const addressMatch = place.address
+      ? restaurantCatalog.find((restaurant) => (
+        normalizedAddress(restaurant.address) === normalizedAddress(place.address)
+      ))
+      : undefined;
+    const addressSuggestion = addressMatch
+      ? { ...addressMatch, distanceMeters: null, matchScore: 1 } satisfies RestaurantSuggestion
+      : undefined;
+    const bestMatch = addressSuggestion ?? suggestRestaurants(restaurantCatalog, place.name, placeLocation, 1)[0];
+    setRestaurantName(place.name);
+    setDebouncedRestaurantName(place.name);
+    setAddress(place.address ?? "");
+    setSelectedAlias(place.name);
+    setCreateMessage("");
+    setSaveLocation(Boolean(placeLocation));
+    if (addressSuggestion || isLikelyDuplicate(place.name, bestMatch)) {
+      setSelectedRestaurant(bestMatch);
+      setCreatingNewRestaurant(false);
+    } else {
+      setSelectedRestaurant(null);
+      setCreatingNewRestaurant(true);
+    }
+  }, [coordinates, restaurantCatalog]);
+
+  useEffect(() => {
+    const value = mapUrl.trim();
+    if (!createOpen || !value || !/^https:\/\/(?:maps\.app\.goo\.gl|goo\.gl|maps\.google\.com|(?:www\.)?google\.com)\//i.test(value)) {
+      if (!value) {
+        setMapLinkState("idle");
+        setMapLinkMessage("");
+        setResolvedMapPlace(null);
+      }
+      return;
+    }
+    let cancelled = false;
+    const timer = window.setTimeout(() => {
+      setMapLinkState("resolving");
+      setMapLinkMessage("正在讀取店家資訊…");
+      void resolveGoogleMapsLink(value)
+        .then((place) => {
+          if (cancelled) return;
+          setResolvedMapPlace(place);
+          setMapLinkState("ready");
+          setMapLinkMessage(place.address ?? "已從 Google 地圖帶入店名");
+          applyResolvedPlace(place);
+        })
+        .catch((error) => {
+          if (cancelled) return;
+          setResolvedMapPlace(null);
+          setMapLinkState("error");
+          const message = errorMessage(error, "");
+          setMapLinkMessage(message.includes("Edge Function")
+            ? "暫時讀不到連結；仍可直接輸入店名。"
+            : message || "讀不到這個連結，仍可直接輸入店名。");
+        });
+    }, 450);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+    };
+  }, [applyResolvedPlace, createOpen, mapUrl]);
+
   const closeCreateSheet = () => {
     if (creating) return;
     setCreateOpen(false);
@@ -353,6 +437,9 @@ export function HomePage({ onOpenVisit }: HomePageProps) {
     setBranchName("");
     setAddress("");
     setMapUrl("");
+    setMapLinkState("idle");
+    setMapLinkMessage("");
+    setResolvedMapPlace(null);
     resetRestaurantChoice();
     setCreateMessage("");
   };
@@ -525,6 +612,37 @@ export function HomePage({ onOpenVisit }: HomePageProps) {
             )}
           </div>
 
+          <label className={`restaurant-map-link is-${mapLinkState}`}>
+            <span><LinkSimple weight="bold" aria-hidden="true" />Google 地圖分享連結 <small>貼一個就好</small></span>
+            <span className="restaurant-map-link-input">
+              <input
+                type="url"
+                value={mapUrl}
+                maxLength={1200}
+                inputMode="url"
+                autoComplete="off"
+                placeholder="https://maps.app.goo.gl/…"
+                onChange={(event) => {
+                  setMapUrl(event.target.value);
+                  setMapLinkState("idle");
+                  setMapLinkMessage("");
+                  setResolvedMapPlace(null);
+                  resetRestaurantChoice();
+                }}
+              />
+              {mapLinkState === "resolving" && <SpinnerGap className="is-spinning" weight="bold" aria-hidden="true" />}
+              {mapLinkState === "ready" && <CheckCircle weight="fill" aria-hidden="true" />}
+            </span>
+            {(mapLinkMessage || resolvedMapPlace) && (
+              <small className="restaurant-map-link-feedback" role={mapLinkState === "error" ? "alert" : "status"}>
+                {mapLinkState === "ready" && resolvedMapPlace ? <strong>{resolvedMapPlace.name}</strong> : null}
+                <span>{mapLinkMessage}</span>
+              </small>
+            )}
+          </label>
+
+          <div className="restaurant-input-divider"><span>或輸入店名</span></div>
+
           <label className="restaurant-search-field">
             <span>你現在在哪間店？</span>
             <span className="restaurant-search-input">
@@ -641,14 +759,10 @@ export function HomePage({ onOpenVisit }: HomePageProps) {
                 </label>
               )}
               <details className="restaurant-extra-details">
-                <summary>補充地址或 Google 地圖連結</summary>
+                <summary>補充或修正地址</summary>
                 <label>
                   <span>地址 <small>選填</small></span>
                   <input type="text" value={address} maxLength={300} autoComplete="street-address" placeholder="貼上或輸入地址" onChange={(event) => setAddress(event.target.value)} />
-                </label>
-                <label>
-                  <span><LinkSimple weight="bold" aria-hidden="true" />Google 地圖分享網址 <small>選填</small></span>
-                  <input type="url" value={mapUrl} maxLength={1200} inputMode="url" placeholder="https://maps.app.goo.gl/…" onChange={(event) => setMapUrl(event.target.value)} />
                 </label>
               </details>
             </section>

@@ -104,6 +104,7 @@ export interface Dish {
 export interface RatingDraft {
   score: number | null;
   selectedReasons: string[];
+  note: string;
   state: ParticipationStatus;
   resumeState?: Exclude<ParticipationStatus, "not_eaten">;
   openedAt?: string;
@@ -118,6 +119,7 @@ export interface ResultIndividualScore {
   name: string;
   score: number;
   reasons: string[];
+  note?: string;
 }
 
 export interface VisitDishResult {

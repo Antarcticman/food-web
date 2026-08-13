@@ -97,6 +97,7 @@ export interface CreateActiveVisitInput {
   longitude?: number;
   locationAccuracy?: number;
   mapUrl?: string;
+  mapExternalId?: string;
   saveLocation?: boolean;
   requestedAlias?: string;
   userId: string;
@@ -136,6 +137,16 @@ export interface RestaurantSearchLocation {
   accuracy: number;
 }
 
+export interface ResolvedMapPlace {
+  name: string;
+  address: string | null;
+  latitude: number | null;
+  longitude: number | null;
+  externalId: string | null;
+  originalUrl: string;
+  finalUrl: string;
+}
+
 function one<T>(value: T | T[] | null): T | null {
   if (Array.isArray(value)) return value[0] ?? null;
   return value;
@@ -156,6 +167,40 @@ function requireClient() {
   const client = getSupabaseClient();
   if (!client) throw new Error("Supabase 尚未設定");
   return client;
+}
+
+export async function resolveGoogleMapsLink(url: string): Promise<ResolvedMapPlace> {
+  const { data, error } = await requireClient().functions.invoke("resolve-map-link", {
+    body: { url: url.trim() },
+  });
+  if (error) {
+    const context = (error as { context?: Response }).context;
+    if (context) {
+      try {
+        const payload = await context.clone().json() as { error?: unknown; message?: unknown };
+        const message = typeof payload.error === "string"
+          ? payload.error
+          : typeof payload.message === "string" ? payload.message : "";
+        if (message) throw new Error(message);
+      } catch (cause) {
+        if (cause instanceof Error && cause.message && cause.message !== "Unexpected end of JSON input") throw cause;
+      }
+      throw new Error(`地圖連結服務回應 ${context.status}`);
+    }
+    throw error;
+  }
+  if (!data || typeof data.name !== "string") {
+    throw new Error(typeof data?.error === "string" ? data.error : "無法從這個連結讀取店家資訊");
+  }
+  return {
+    name: data.name,
+    address: typeof data.address === "string" ? data.address : null,
+    latitude: typeof data.latitude === "number" ? data.latitude : null,
+    longitude: typeof data.longitude === "number" ? data.longitude : null,
+    externalId: typeof data.externalId === "string" ? data.externalId : null,
+    originalUrl: typeof data.originalUrl === "string" ? data.originalUrl : url,
+    finalUrl: typeof data.finalUrl === "string" ? data.finalUrl : url,
+  };
 }
 
 function distanceMeters(latitudeA: number, longitudeA: number, latitudeB: number, longitudeB: number) {
@@ -556,6 +601,17 @@ export async function createActiveVisit(input: CreateActiveVisitInput): Promise<
     const row = Array.isArray(rpcResult.data) ? rpcResult.data[0] : rpcResult.data;
     const visitId = (row as { visit_id?: string } | null)?.visit_id;
     if (!visitId) throw new Error("餐桌已建立，但沒有回傳房間資料。");
+    const resolvedRestaurantId = (row as { restaurant_id?: string } | null)?.restaurant_id ?? input.restaurantId;
+    if (resolvedRestaurantId && (address || input.mapUrl?.trim() || input.mapExternalId?.trim())) {
+      const enrichment = await client.rpc("enrich_restaurant_from_map", {
+        target_restaurant: resolvedRestaurantId,
+        requested_address: address,
+        requested_map_url: input.mapUrl?.trim().slice(0, 1200) || null,
+        requested_google_maps_ftid: input.mapExternalId?.trim().slice(0, 200) || null,
+      });
+      const missingEnrichment = enrichment.error?.code === "42883" || enrichment.error?.code === "PGRST202";
+      if (enrichment.error && !missingEnrichment) throw enrichment.error;
+    }
     return visitId;
   }
   const missingRpc = rpcResult.error.code === "42883" || rpcResult.error.code === "PGRST202";

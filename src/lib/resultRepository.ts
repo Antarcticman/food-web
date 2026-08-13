@@ -7,6 +7,7 @@ export interface PersistedResultIndividualScore {
   name: string;
   score: number;
   reasons: string[];
+  note?: string;
 }
 
 export interface PersistedResultDish {

@@ -115,7 +115,11 @@ function DishDetail({ result, participants }: { result: VisitDishResult; partici
           return (
             <article key={score.participantId}>
               <Avatar participant={participant} variant="bust" decorative />
-              <span><strong>{score.name}</strong>{score.reasons.length > 0 && <small>{score.reasons.join(" · ")}</small>}</span>
+              <span>
+                <strong>{score.name}</strong>
+                {score.reasons.length > 0 && <small>{score.reasons.join(" · ")}</small>}
+                {score.note && <p className="result-score-note">{score.note}</p>}
+              </span>
               <b>{score.score}</b>
             </article>
           );

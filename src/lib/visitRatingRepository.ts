@@ -73,6 +73,7 @@ interface RatingRow {
   dish_id: string;
   score: number;
   reasons: string[];
+  note: string | null;
   rated_at: string;
   updated_at: string;
 }
@@ -220,7 +221,7 @@ export async function loadVisitRatingState(visitId: string, currentUserId: strin
     };
   }
 
-  const [consumerResult, progressResult, ratingResult] = await Promise.all([
+  const [consumerResult, progressResult, initialRatingResult] = await Promise.all([
     client
       .from("dish_consumers")
       .select("dish_id, status, resume_status, opened_at, updated_at")
@@ -232,10 +233,23 @@ export async function loadVisitRatingState(visitId: string, currentUserId: strin
       .in("dish_id", dishIds),
     client
       .from("ratings")
-      .select("dish_id, score, reasons, rated_at, updated_at")
+      .select("dish_id, score, reasons, note, rated_at, updated_at")
       .eq("user_id", currentUserId)
       .in("dish_id", dishIds),
   ]);
+
+  let ratingResult = initialRatingResult;
+  if (ratingResult.error && (
+    ratingResult.error.code === "42703"
+    || ratingResult.error.code === "PGRST204"
+    || ratingResult.error.message?.includes("ratings.note")
+  )) {
+    ratingResult = await client
+      .from("ratings")
+      .select("dish_id, score, reasons, rated_at, updated_at")
+      .eq("user_id", currentUserId)
+      .in("dish_id", dishIds) as typeof initialRatingResult;
+  }
 
   if (consumerResult.error) throw consumerResult.error;
   if (progressResult.error) throw progressResult.error;
@@ -279,6 +293,7 @@ export async function loadVisitRatingState(visitId: string, currentUserId: strin
     return [dish.id, {
       score: rating?.score ?? null,
       selectedReasons: rating?.reasons ?? [],
+      note: rating?.note ?? "",
       state: consumer?.status ?? "unopened",
       resumeState: consumer?.resume_status && consumer.resume_status !== "not_eaten"
         ? consumer.resume_status
@@ -313,6 +328,15 @@ export async function saveVisitRating(dishId: string, currentUserId: string, sco
   const { error } = await requireClient()
     .from("ratings")
     .upsert({ dish_id: dishId, user_id: currentUserId, score, reasons: reasons.slice(0, 3) }, { onConflict: "dish_id,user_id" });
+  if (error) throw error;
+}
+
+export async function saveVisitRatingNote(dishId: string, currentUserId: string, note: string) {
+  const { error } = await requireClient()
+    .from("ratings")
+    .update({ note: note.trim().slice(0, 300) || null })
+    .eq("dish_id", dishId)
+    .eq("user_id", currentUserId);
   if (error) throw error;
 }
 

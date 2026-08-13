@@ -29,6 +29,7 @@ import {
   reorderVisitDishes,
   restoreVisitDish,
   saveVisitRating,
+  saveVisitRatingNote,
   setVisitDishConsumers,
   setVisitDishConsumption,
   subscribeToVisitRatingState,
@@ -70,6 +71,7 @@ function draftFor(dish: Dish, currentParticipantId: string): RatingDraft {
   return {
     score: null,
     selectedReasons: [],
+    note: "",
     state,
     updatedAt: new Date().toISOString(),
   };
@@ -110,6 +112,7 @@ function resultDishFromSnapshot(
       name: score.name,
       score: score.score,
       reasons: score.reasons,
+      note: score.note,
     })),
   };
 }
@@ -162,6 +165,8 @@ function RatingExperience({ activeVisit, onHome }: RatingExperienceProps) {
   const syncTimer = useRef<number | null>(null);
   const refreshTimer = useRef<number | null>(null);
   const writeChains = useRef(new Map<string, Promise<void>>());
+  const noteTimers = useRef(new Map<string, number>());
+  const latestNotes = useRef(new Map<string, string>());
   const profilePrompted = useRef(false);
   const displayParticipants = useMemo(
     () => roomParticipants.map((participant) => participant.id === currentParticipantId
@@ -206,6 +211,7 @@ function RatingExperience({ activeVisit, onHome }: RatingExperienceProps) {
       [previewDish.id]: {
         score: null,
         selectedReasons: [],
+        note: "",
         state: "unopened",
         updatedAt: new Date().toISOString(),
       },
@@ -275,6 +281,7 @@ function RatingExperience({ activeVisit, onHome }: RatingExperienceProps) {
   useEffect(() => () => {
     if (toastTimer.current) window.clearTimeout(toastTimer.current);
     if (syncTimer.current) window.clearTimeout(syncTimer.current);
+    noteTimers.current.forEach((timer) => window.clearTimeout(timer));
   }, []);
 
   useEffect(() => {
@@ -289,7 +296,7 @@ function RatingExperience({ activeVisit, onHome }: RatingExperienceProps) {
     toastTimer.current = window.setTimeout(() => setToast(null), undo ? 5200 : 3400);
   }, []);
 
-  const queueWrite = useCallback((key: string, task: () => Promise<void>) => {
+  const queueWrite = useCallback((key: string, task: () => Promise<void>, refreshOnError = true) => {
     const previous = writeChains.current.get(key) ?? Promise.resolve();
     setSyncState(window.navigator.onLine ? "saving" : "queued");
     const next = previous
@@ -303,7 +310,7 @@ function RatingExperience({ activeVisit, onHome }: RatingExperienceProps) {
       .catch((error) => {
         setSyncState("error");
         showToast(error instanceof Error ? error.message : "儲存失敗，已重新讀取這桌資料。");
-        void refreshRoom();
+        if (refreshOnError) void refreshRoom();
       })
       .finally(() => {
         if (writeChains.current.get(key) === next) writeChains.current.delete(key);
@@ -397,6 +404,34 @@ function RatingExperience({ activeVisit, onHome }: RatingExperienceProps) {
     });
     cancelReady();
     queueWrite(activeDish.id, () => saveVisitRating(activeDish.id, currentParticipantId, activeDraft.score as number, selectedReasons));
+  };
+
+  const changeNote = (note: string) => {
+    if (!activeDish || !activeDraft || activeDish.previewOnly || activeDraft.state !== "rated") return;
+    const dishId = activeDish.id;
+    const cleaned = note.slice(0, 300);
+    latestNotes.current.set(dishId, cleaned);
+    setRatings((current) => ({
+      ...current,
+      [dishId]: { ...(current[dishId] ?? activeDraft), note: cleaned, updatedAt: new Date().toISOString() },
+    }));
+    cancelReady();
+    const prior = noteTimers.current.get(dishId);
+    if (prior) window.clearTimeout(prior);
+    noteTimers.current.set(dishId, window.setTimeout(() => {
+      noteTimers.current.delete(dishId);
+      queueWrite(`note:${dishId}`, () => saveVisitRatingNote(dishId, currentParticipantId, cleaned), false);
+    }, 700));
+  };
+
+  const flushNote = () => {
+    if (!activeDish || !activeDraft || activeDish.previewOnly || activeDraft.state !== "rated") return;
+    const dishId = activeDish.id;
+    const timer = noteTimers.current.get(dishId);
+    if (timer) window.clearTimeout(timer);
+    noteTimers.current.delete(dishId);
+    const latest = latestNotes.current.get(dishId) ?? activeDraft.note;
+    queueWrite(`note:${dishId}`, () => saveVisitRatingNote(dishId, currentParticipantId, latest), false);
   };
 
   const confirmDish = () => {
@@ -712,6 +747,8 @@ function RatingExperience({ activeVisit, onHome }: RatingExperienceProps) {
               onOpen={openDish}
               onScoreCommit={commitScore}
               onToggleReason={toggleReason}
+              onNoteChange={changeNote}
+              onNoteBlur={flushNote}
               onConfirm={confirmDish}
               onToggleNotEaten={toggleNotEaten}
               onNavigate={navigateDish}

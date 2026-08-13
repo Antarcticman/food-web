@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type CSSProperties, type PointerEvent as ReactPointerEvent } from "react";
-import { Check, CircleNotch, LockSimple } from "@phosphor-icons/react";
+import { Check, CircleNotch, LockSimple, NotePencil } from "@phosphor-icons/react";
 import { Avatar } from "./Avatar";
 import { DishVisual } from "./DishVisual";
 import { ParticipantStrip } from "./ParticipantStrip";
@@ -24,6 +24,8 @@ interface RatingStageProps {
   onOpen: () => void;
   onScoreCommit: (score: number) => void;
   onToggleReason: (reason: string) => void;
+  onNoteChange: (note: string) => void;
+  onNoteBlur: () => void;
   onConfirm: () => void;
   onToggleNotEaten: () => void;
   onNavigate: (direction: -1 | 1) => void;
@@ -77,6 +79,8 @@ export function RatingStage({
   onOpen,
   onScoreCommit,
   onToggleReason,
+  onNoteChange,
+  onNoteBlur,
   onConfirm,
   onToggleNotEaten,
   onNavigate,
@@ -96,6 +100,7 @@ export function RatingStage({
   const [wobble, setWobble] = useState(false);
   const [rebound, setRebound] = useState(false);
   const [previewCovered, setPreviewCovered] = useState(true);
+  const [noteOpen, setNoteOpen] = useState(false);
 
   useEffect(() => {
     sessionRef.current = null;
@@ -106,6 +111,7 @@ export function RatingStage({
     setRevealing(false);
     setWobble(false);
     setRebound(false);
+    setNoteOpen(false);
     if (dish.previewOnly) setPreviewCovered(true);
   }, [dish.id, draft.score, draft.state]);
 
@@ -139,7 +145,7 @@ export function RatingStage({
     if (locked) return;
     if (event.pointerType === "mouse" && event.button !== 0) return;
     const control = event.target instanceof Element
-      ? event.target.closest("button, input")
+      ? event.target.closest("button, input, textarea")
       : null;
     if (control && !control.matches(".cloche-button, .preview-dish-toggle")) return;
     event.currentTarget.setPointerCapture(event.pointerId);
@@ -442,7 +448,7 @@ export function RatingStage({
           {onOpenResultPreview && <button type="button" onClick={onOpenResultPreview}>測試頒獎</button>}
         </div>
       ) : (
-        <div className={`reason-tray${draft.state === "rated" && showReasons && !locked ? " is-visible" : ""}`} aria-hidden={draft.state !== "rated" || !showReasons || locked}>
+        <div className={`reason-tray${draft.state === "rated" && showReasons && !locked ? " is-visible" : ""}${noteOpen ? " is-note-open" : ""}`} aria-hidden={draft.state !== "rated" || !showReasons || locked}>
           <div className="reason-tray-copy">
             <strong>{reasonSet.prompt}</strong>
             <small>最多選 3 個</small>
@@ -465,6 +471,31 @@ export function RatingStage({
                 </button>
               );
             })}
+          </div>
+          <div className="rating-note-control">
+            {noteOpen ? (
+              <label>
+                <span className="sr-only">{dish.overall ? "整體用餐評語" : `${dish.name}的評語`}</span>
+                <textarea
+                  rows={2}
+                  maxLength={300}
+                  value={draft.note}
+                  autoFocus
+                  placeholder={dish.overall ? "服務、環境、結帳或整體感受…" : "味道、口感，或下次想提醒自己的事…"}
+                  onChange={(event) => onNoteChange(event.target.value)}
+                  onBlur={() => {
+                    onNoteBlur();
+                    setNoteOpen(false);
+                  }}
+                />
+                <small>{draft.note.length}/300</small>
+              </label>
+            ) : (
+              <button type="button" onClick={() => setNoteOpen(true)}>
+                <NotePencil weight="bold" aria-hidden="true" />
+                <span>{draft.note.trim() || "寫一句"}</span>
+              </button>
+            )}
           </div>
         </div>
       )}

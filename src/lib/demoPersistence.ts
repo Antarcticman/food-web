@@ -62,6 +62,7 @@ function draftForDish(dish: Dish, currentParticipantId: string, legacy?: LegacyR
   return {
     score,
     selectedReasons: Array.isArray(legacy?.selectedReasons) ? legacy.selectedReasons.slice(0, 3) : [],
+    note: "",
     state,
     resumeState: state === "not_eaten" ? (score !== null && legacy?.submitted ? "rated" : "opened") : undefined,
     openedAt: state === "opened" || state === "rated" ? now : undefined,
@@ -98,6 +99,7 @@ function normalizeV3(parsed: SavedDemoV3, currentParticipantId: string): SavedDe
       score: typeof saved.score === "number" ? saved.score : null,
       state,
       selectedReasons: Array.isArray(saved.selectedReasons) ? saved.selectedReasons.slice(0, 3) : [],
+      note: typeof saved.note === "string" ? saved.note.slice(0, 300) : "",
       updatedAt: saved.updatedAt ?? new Date().toISOString(),
     } satisfies RatingDraft];
   })) as RatingDrafts;

@@ -122,9 +122,9 @@ export const initialDishes: Dish[] = [
 const now = new Date().toISOString();
 
 export const initialRatings: RatingDrafts = {
-  scallop: { score: 68, selectedReasons: ["鮮味乾淨"], state: "rated", ratedAt: now, updatedAt: now },
-  duck: { score: 74, selectedReasons: [], state: "opened", openedAt: now, updatedAt: now },
-  pudding: { score: null, selectedReasons: [], state: "unopened", updatedAt: now },
-  "scene-preview": { score: null, selectedReasons: [], state: "unopened", updatedAt: now },
-  overall: { score: null, selectedReasons: [], state: "unopened", updatedAt: now },
+  scallop: { score: 68, selectedReasons: ["鮮味乾淨"], note: "", state: "rated", ratedAt: now, updatedAt: now },
+  duck: { score: 74, selectedReasons: [], note: "", state: "opened", openedAt: now, updatedAt: now },
+  pudding: { score: null, selectedReasons: [], note: "", state: "unopened", updatedAt: now },
+  "scene-preview": { score: null, selectedReasons: [], note: "", state: "unopened", updatedAt: now },
+  overall: { score: null, selectedReasons: [], note: "", state: "unopened", updatedAt: now },
 };

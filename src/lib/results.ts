@@ -77,6 +77,7 @@ function buildDishResult(
       name: participant.name,
       score: result.score,
       reasons: result.reasons,
+      note: participant.id === currentParticipantId ? ratings[dish.id]?.note : undefined,
     }];
   });
   return {
