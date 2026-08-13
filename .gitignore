@@ -1,0 +1,32 @@
+node_modules/
+dist/
+.agents/
+.pnpm-store/
+
+# Local environment values must never be committed.
+.env
+.env.local
+.env.*.local
+
+# Downloaded OAuth credential bundles contain client secrets.
+client_secret*.json
+google-oauth*.json
+.secrets/
+
+# Local tooling and editor output.
+*.tsbuildinfo
+*.log
+vite.config.js
+vite.config.d.ts
+.DS_Store
+Thumbs.db
+
+# Affinity lock and recovery files.
+*.af~lock~
+
+# Local design source and the pre-React prototype are not needed by the deployed app.
+food.af
+app.js
+styles.css
+legacy-demo.html
+server.mjs
