@@ -481,26 +481,29 @@ export function RatingStage({
                 </button>
               );
             })}
-            {!noteOpen && (
-              <button
-                className="rating-note-chip"
-                type="button"
-                tabIndex={draft.state === "rated" && showReasons && !locked ? 0 : -1}
-                onClick={() => {
+            <button
+              className={`rating-note-chip${noteOpen ? " is-note-open" : ""}`}
+              type="button"
+              tabIndex={draft.state === "rated" && showReasons && !locked ? 0 : -1}
+              aria-expanded={noteOpen}
+              aria-controls="rating-note-input"
+              onClick={() => {
+                if (!noteOpen) {
                   setNoteDraft(draft.note);
                   setNoteOpen(true);
-                }}
-              >
-                <NotePencil weight="bold" aria-hidden="true" />
-                <span>{draft.note.trim() || "寫一句"}</span>
-              </button>
-            )}
+                }
+              }}
+            >
+              <NotePencil weight="bold" aria-hidden="true" />
+              <span>{draft.note.trim() || "寫一句"}</span>
+            </button>
           </div>
           {noteOpen && (
             <div className="rating-note-control">
               <label>
                 <span className="sr-only">{dish.overall ? "整體用餐評語" : `${dish.name}的評語`}</span>
                 <textarea
+                  id="rating-note-input"
                   rows={2}
                   maxLength={300}
                   value={noteDraft}

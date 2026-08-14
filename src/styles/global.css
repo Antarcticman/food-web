@@ -1086,7 +1086,7 @@ button:disabled { cursor: not-allowed; opacity: .42; }
   max-height: none;
   align-self: start;
   min-height: 0;
-  grid-template-rows: auto auto 3.65rem;
+  grid-template-rows: auto auto auto;
   gap: .45rem;
   overflow: visible;
   padding: .75rem;
@@ -1246,7 +1246,7 @@ button:disabled { cursor: not-allowed; opacity: .42; }
 .ready-button:disabled { cursor: wait; opacity: .82; }
 .ready-spinner { width: 1rem; height: 1rem; animation: room-loader-spin 720ms linear infinite; }
 
-.reason-tray { display: grid; min-width: 0; height: 3.65rem; grid-template-columns: 5.35rem minmax(0, 1fr); grid-template-rows: 3.65rem; align-items: center; gap: .3rem; overflow: hidden; opacity: 0; transform: translateY(.35rem); transition: height var(--duration-fast), opacity var(--duration-fast), transform var(--duration-fast); pointer-events: none; }
+.reason-tray { display: grid; min-width: 0; height: 3.65rem; grid-template-columns: 5.35rem minmax(0, 1fr); grid-template-rows: 3.65rem; align-items: center; gap: .3rem; overflow: hidden; opacity: 0; transform: translateY(.35rem); transition: opacity var(--duration-fast), transform var(--duration-fast); pointer-events: none; }
 .reason-tray.is-visible { opacity: 1; transform: translateY(0); pointer-events: auto; }
 .reason-tray.is-note-open { height: 7.05rem; grid-template-rows: 3.65rem 3.1rem; align-items: center; }
 .reason-tray-copy { grid-column: 1; grid-row: 1; min-width: 0; }
@@ -1256,12 +1256,14 @@ button:disabled { cursor: not-allowed; opacity: .42; }
 .reason-tray .reason-chips button { height: 2.25rem; min-height: 2.25rem; padding: .4rem .36rem; font-size: .58rem; white-space: nowrap; }
 .reason-tray .reason-chips button.is-limit-disabled { opacity: .42; }
 .reason-tray .reason-chips .rating-note-chip { color: var(--mint-700); }
+.reason-tray .reason-chips .rating-note-chip.is-note-open { border-color: var(--mint-700); background: #e8f1ed; }
 .reason-tray .reason-chips .rating-note-chip svg { width: .82rem; height: .82rem; }
 .reason-tray .reason-chips .rating-note-chip span { max-width: 6rem; overflow: hidden; text-overflow: ellipsis; }
 .rating-note-control { grid-column: 1 / -1; grid-row: 2; min-width: 0; }
-.rating-note-control > label { position: relative; display: block; }
-.rating-note-control textarea { display: block; width: 100%; height: 3rem; resize: none; padding: .42rem 2.5rem .38rem .58rem; border: 1px solid rgb(52 107 91 / .35); border-radius: .8rem; background: var(--cream-50); color: var(--ink-950); font: inherit; font-size: 1rem; line-height: 1.25; outline: 0; }
-.rating-note-control textarea:focus { border-color: var(--mint-700); box-shadow: 0 0 0 3px rgb(52 107 91 / .1); }
+.rating-note-control > label { position: relative; display: block; height: 3rem; overflow: hidden; border: 1px solid rgb(52 107 91 / .35); border-radius: .8rem; background: var(--cream-50); }
+.rating-note-control > label:focus-within { border-color: var(--mint-700); box-shadow: 0 0 0 3px rgb(52 107 91 / .1); }
+.rating-note-control textarea { display: block; width: 133.334%; height: 4rem; resize: none; padding: .56rem 3.35rem .5rem .78rem; border: 0; border-radius: 0; background: transparent; color: var(--ink-950); font: inherit; font-size: 1rem; line-height: 1.25; outline: 0; transform: scale(.75); transform-origin: top left; }
+.rating-note-control textarea:focus { box-shadow: none; }
 .rating-note-control label > small { position: absolute; right: .5rem; bottom: .36rem; color: var(--ink-450); font-size: .45rem; }
 .preview-instructions { display: flex; min-width: 0; height: 3.65rem; align-items: center; justify-content: space-between; gap: .45rem; color: var(--ink-600); }
 .preview-instructions > span { display: grid; min-width: 0; line-height: 1.25; }
